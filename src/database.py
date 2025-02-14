@@ -15,14 +15,20 @@ pool = ConnectionPool(
     max_waiting=4
 )
 
+is_pool_open = False
+
 
 def db_open() -> None:
-    global pool
-    pool.open()
+    global pool, is_pool_open
+    if is_pool_open is False:
+        pool.open()
+        is_pool_open = True
+
 
 def db_close() -> None:
     global pool
     pool.close()
+
 
 def get_pool() -> ConnectionPool:
     global pool

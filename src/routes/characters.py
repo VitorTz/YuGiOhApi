@@ -3,9 +3,8 @@ from fastapi.responses import Response, JSONResponse
 from src.database import get_pool
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
-from src.models.image import CardImage
 from src.models.character import Character
-from src.util.query_constructor import QueryConstructor
+from src.query_constructor import QueryConstructor, Comparation, QueryComp
 from typing import List
 
 
@@ -13,13 +12,13 @@ characters_router = APIRouter()
 
 
 @characters_router.get("/characters", response_model=List[Character])
-def read_character(
+def get_character(
     character_id: int = Query(default=None),
     character_name: str = Query(default=None)
 ):
     q = QueryConstructor(table_prefix="c.")
-    q.add_comp("character_id", '=', character_id)
-    q.add_comp("name", '=', character_name)
+    q.add(QueryComp('character_id', Comparation.EQUAL, character_id))
+    q.add(QueryComp('name', Comparation.EQUAL, character_name))    
     pool: ConnectionPool = get_pool()
     with pool.connection() as conn:
         with conn.cursor() as cur:
@@ -30,18 +29,9 @@ def read_character(
                         c.character_id,
                         c.name,
                         c.bio,
-                        c.wiki_page_url,
-                        c.height::double precision,
-                        c.weight::double precision,
-                        pi.image_url AS perfil_image_url,
-                        i.image_url AS image_url,
-                        c.personality
+                        c.wiki_page_url                        
                     FROM 
-                        public.characters c
-                    INNER JOIN 
-                        public.images pi ON c.perfil_image_id = pi.image_id
-                    INNER JOIN 
-                        public.images i ON c.image_id = i.image_id
+                        characters c
                     {q.query()}
                 """,
                 q.values()
@@ -50,5 +40,34 @@ def read_character(
             if r is None:
                 return Response(status_code=status.HTTP_404_NOT_FOUND)
             return JSONResponse(r, status.HTTP_200_OK)
+
+
+@characters_router.get("/characters/images", response_model=List[Character])
+def get_character(character_id: int = Query()):    
+    pool: ConnectionPool = get_pool()
+    with pool.connection() as conn:
+        with conn.cursor() as cur:            
+            cur.execute(
+                f"""
+                    SELECT
+                        i.image_url
+                    FROM 
+                        images i 
+                    INNER JOIN
+                        character_images ci
+                    ON
+                        ci.image_id = i.image_id
+                    WHERE
+                        ci.character_id = %s;
+                """,
+                (str(character_id), )
+            )
+            r = cur.fetchall()
+            if r is None:
+                return Response(status_code=status.HTTP_404_NOT_FOUND)
+            images: list = []
+            for image in r:
+                images.append(image[0])
+            return JSONResponse(images, status.HTTP_200_OK)
 
 

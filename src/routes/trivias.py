@@ -3,7 +3,7 @@ from fastapi.responses import Response, JSONResponse
 from src.database import get_pool
 from psycopg_pool import ConnectionPool
 from psycopg.rows import dict_row
-from src.util.query_constructor import QueryConstructor
+from src.query_constructor import QueryConstructor, Comparation, QueryComp
 from src.models.trivia import Trivia
 from typing import List
 
@@ -18,9 +18,9 @@ def read_trivia(
     character_id: int = Query(default=None, description="Search for a trivia related to the character")
 ):
     q = QueryConstructor('t.')
-    q.add_comp('trivia_id', '=', trivia_id)
-    q.add_search_term('descr', search_term)
-    q.add_comp('character_id', '=', character_id, 'ctm.')
+    q.add(QueryComp('trivia_id', Comparation.EQUAL, trivia_id))
+    q.add(QueryComp('descr', Comparation.SEARCH_TERM, search_term))
+    q.add(QueryComp('character_id', Comparation.EQUAL, character_id), prefix='ctm.')    
     pool: ConnectionPool = get_pool()
     with pool.connection() as conn:
        with conn.cursor() as cur:

@@ -4,24 +4,25 @@ from psycopg_pool import ConnectionPool
 from psycopg.rows import dict_row
 from src.database import get_pool
 from src.models.item import Item
-from src.util.query_constructor import QueryConstructor
+from src.query_constructor import QueryConstructor, Comparation, QueryComp
+from src.util import get_enum_list
 from typing import List
 
 items_router = APIRouter()
 
 
 @items_router.get("/items", response_model=List[Item])
-def read_item(
+def get_item(
     item_id: int = Query(default=None),
     item_type: str = Query(default=None),
     item_name: str = Query(default=None),
     character_id: int = Query(default=None, description="search for items related to character")
 ):
     q = QueryConstructor(table_prefix='i.')
-    q.add_comp('item_id', '=', item_id)
-    q.add_comp('item_type', '=', item_type)
-    q.add_comp('character_id', '=', character_id, table_prefix='ir.')
-    q.add_search_term('name', item_name)
+    q.add(QueryComp('item_id', Comparation.EQUAL, item_id))
+    q.add(QueryComp('item_type', Comparation.EQUAL, item_type))
+    q.add(QueryComp('character_id', Comparation.EQUAL, character_id), prefix='ir.')
+    q.add(QueryComp('name', Comparation.SEARCH_TERM, item_name))    
     pool: ConnectionPool = get_pool()
     with pool.connection() as conn:
         with conn.cursor() as cur:
@@ -33,7 +34,7 @@ def read_item(
                         i.item_type,
                         i.image_id,
                         i.descr,                        
-                        i.name,
+                        i.name,                        
                         imgs.image_url,
                         i.wiki_page_url
                     FROM 
@@ -52,4 +53,31 @@ def read_item(
             if not r:
                 return Response(status_code=status.HTTP_404_NOT_FOUND)
             return JSONResponse(r, status_code=status.HTTP_200_OK)
-            
+        
+
+@items_router.get("/items/types", response_model=list[str])
+def get_items_types():
+    return JSONResponse(get_enum_list("item_type"))
+
+
+@items_router.get("/items/names", response_model=list[str])
+def get_items_names():
+    pool: ConnectionPool = get_pool()
+    with pool.connection() as conn:
+        with conn.cursor() as cur:            
+            cur.execute(
+                f"""
+                    SELECT
+                        name                        
+                    FROM 
+                        items;                    
+                """
+            )
+            r = cur.fetchall()
+            items: list[str] = []
+            for item in r:
+                items.append(item[0])
+            if not r:
+                return Response(status_code=status.HTTP_404_NOT_FOUND)
+            return JSONResponse(items)
+        

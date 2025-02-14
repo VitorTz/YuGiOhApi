@@ -5,6 +5,7 @@ from src.routes.cards import cards_router
 from src.routes.characters import characters_router
 from src.routes.trivias import trivias_router
 from src.routes.items import items_router
+from src.routes.decks import decks_router
 from dotenv import load_dotenv
 import uvicorn
 import os
@@ -26,7 +27,7 @@ app.include_router(cards_router, prefix="/api", tags=["cards"])
 app.include_router(characters_router, prefix="/api", tags=["characters"])
 app.include_router(trivias_router, prefix="/api", tags=["trivias"])
 app.include_router(items_router, prefix="/api", tags=["items"])
-
+app.include_router(decks_router, prefix="/api", tags=["decks"])
 
 if __name__ == "__main__":
     uvicorn.run(
